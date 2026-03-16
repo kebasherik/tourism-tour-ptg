@@ -231,7 +231,7 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 9m0 8V9m0 0L9 7"/></svg>
     Карта
   </button>
-  <button class="nav-btn" id="nb-ar" onclick="switchTab('ar')">
+  <button class="nav-btn" id="nb-ar" onclick="openAR()">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
     AR камера
   </button>
@@ -265,82 +265,6 @@
 </div>
 
 
-<!-- ══ AR SCREEN ══ -->
-<div id="s-ar" class="screen">
-  <div class="top-bar">
-    <div class="tb-logo">Пяти<span>горск</span> · AR</div>
-    <div class="tb-tag" id="ar-found-tag">Ищу маркер...</div>
-  </div>
-
-  <div id="ar-scene-container">
-
-    <a-scene id="ar-scene"
-      embedded
-      arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
-      renderer="logarithmicDepthBuffer: true; antialias: true;"
-      vr-mode-ui="enabled: false">
-
-      <a-marker preset="hiro" id="m-hiro" emitevents="true">
-        <a-box position="0 .05 0" width="2.2" height=".08" depth="2.2" color="#1A1611" opacity=".95"></a-box>
-        <a-box position="0 .12 1.05" width="2.2" height=".05" depth=".05" color="#C9A84C" opacity=".7"></a-box>
-        <a-box position="0 .12 -1.05" width="2.2" height=".05" depth=".05" color="#C9A84C" opacity=".7"></a-box>
-        <a-box position="1.05 .12 0" width=".05" height=".05" depth="2.2" color="#C9A84C" opacity=".7"></a-box>
-        <a-box position="-1.05 .12 0" width=".05" height=".05" depth="2.2" color="#C9A84C" opacity=".7"></a-box>
-        <a-cylinder position="0 .6 0" radius=".05" height="1.1" color="#C9A84C" opacity=".5"></a-cylinder>
-        <a-plane position="0 1.35 0" rotation="-90 0 0" width="2" height="1.05" color="#0D0B08" opacity=".95"></a-plane>
-        <a-plane position="0 1.44 0" rotation="-90 0 0" width="1.85" height=".025" color="#C9A84C" opacity=".45"></a-plane>
-        <a-plane position="0 .8 0" rotation="-90 0 0" width="1.85" height=".025" color="#C9A84C" opacity=".45"></a-plane>
-        <a-text value="ДОМИК ЛЕРМОНТОВА" position="0 1.33 .01" rotation="-90 0 0" align="center" color="#C9A84C" width="3.2" font="mozillavr"></a-text>
-        <a-text value="1841 год" position="0 1.17 .01" rotation="-90 0 0" align="center" color="#8B6B3D" width="2.5" font="mozillavr"></a-text>
-        <a-text value="Последнее место жительства М. Ю. Лермонтова" position="0 1.02 .01" rotation="-90 0 0" align="center" color="#F0E6D0" width="2.8" font="mozillavr" line-height="55"></a-text>
-        <a-box position=".85 .2 .85" width=".1" height=".2" depth=".1" color="#C9A84C" opacity=".5" animation="property:rotation;to:0 360 0;dur:4000;loop:true;easing:linear"></a-box>
-        <a-box position="-.85 .2 .85" width=".1" height=".2" depth=".1" color="#C9A84C" opacity=".5" animation="property:rotation;to:0 360 0;dur:5500;loop:true;easing:linear"></a-box>
-        <a-box position=".85 .2 -.85" width=".1" height=".2" depth=".1" color="#C9A84C" opacity=".5" animation="property:rotation;to:0 -360 0;dur:4800;loop:true;easing:linear"></a-box>
-        <a-box position="-.85 .2 -.85" width=".1" height=".2" depth=".1" color="#C9A84C" opacity=".5" animation="property:rotation;to:0 -360 0;dur:3700;loop:true;easing:linear"></a-box>
-      </a-marker>
-
-      <a-marker preset="kanji" id="m-kanji" emitevents="true">
-        <a-box position="0 .05 0" width="2.2" height=".08" depth="2.2" color="#0D1A1A" opacity=".95"></a-box>
-        <a-cylinder position="0 .5 0" radius=".5" height=".06" color="#1A3A3A" opacity=".8"></a-cylinder>
-        <a-cylinder position="0 1.1 0" radius=".04" height="1.2" color="#4ABFBF" opacity=".6"></a-cylinder>
-        <a-torus position="0 1.7 0" radius=".55" radius-tubular=".02" color="#4ABFBF" opacity=".5" animation="property:rotation;to:0 360 0;dur:8000;loop:true;easing:linear"></a-torus>
-        <a-sphere position="0 2.3 0" radius=".15" color="#4ABFBF" opacity=".7" animation="property:scale;to:1.3 1.3 1.3;dur:1500;dir:alternate;loop:true;easing:easeInOutSine"></a-sphere>
-        <a-plane position="0 1.38 0" rotation="-90 0 0" width="2.1" height=".95" color="#051515" opacity=".9"></a-plane>
-        <a-text value="ЭОЛОВА АРФА" position="0 1.35 .01" rotation="-90 0 0" align="center" color="#4ABFBF" width="3" font="mozillavr"></a-text>
-        <a-text value="1831 год" position="0 1.19 .01" rotation="-90 0 0" align="center" color="#2A8080" width="2.5" font="mozillavr"></a-text>
-        <a-text value="Беседка с арфой на горе Машук" position="0 1.04 .01" rotation="-90 0 0" align="center" color="#B0E0E0" width="2.8" font="mozillavr" line-height="55"></a-text>
-      </a-marker>
-
-      <a-marker type="barcode" value="0" id="m-barcode0" emitevents="true">
-        <a-box position="0 .05 0" width="2.2" height=".08" depth="2.2" color="#0D0818" opacity=".95"></a-box>
-        <a-cylinder position="0 .7 0" radius=".4" height="1.4" color="#6A0F8E" opacity=".3" open-ended="true"></a-cylinder>
-        <a-cylinder position="0 .7 0" radius=".55" height="1.4" color="#9B59B6" opacity=".15" open-ended="true"></a-cylinder>
-        <a-sphere position="0 1.5 0" radius=".25" color="#9B59B6" opacity=".8" wireframe="true" animation="property:rotation;to:360 360 0;dur:6000;loop:true;easing:linear"></a-sphere>
-        <a-plane position="0 1.38 0" rotation="-90 0 0" width="2.1" height=".95" color="#080512" opacity=".92"></a-plane>
-        <a-text value="ПРОВАЛ" position="0 1.35 .01" rotation="-90 0 0" align="center" color="#9B59B6" width="3" font="mozillavr"></a-text>
-        <a-text value="1837 год" position="0 1.19 .01" rotation="-90 0 0" align="center" color="#6A0F8E" width="2.5" font="mozillavr"></a-text>
-        <a-text value="Подземное озеро синего цвета" position="0 1.04 .01" rotation="-90 0 0" align="center" color="#D7B4F3" width="2.8" font="mozillavr" line-height="55"></a-text>
-      </a-marker>
-
-      <a-entity camera></a-entity>
-    </a-scene>
-
-    <div class="ar-overlay" id="ar-overlay">
-      <div class="reticle" id="reticle">
-        <div class="rc tl"></div><div class="rc tr"></div>
-        <div class="rc bl"></div><div class="rc br"></div>
-      </div>
-      <div class="found-ring" id="found-ring"></div>
-      <div class="ar-hint">
-        <div class="ar-hint-text"><span id="ar-status-dot" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--gold);margin-right:6px;animation:blink 1.5s infinite;vertical-align:middle"></span>Наведи камеру на маркер</div>
-        <div class="ar-hint-sub">
-          Маркеры: <a href="https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/images/hiro.png" target="_blank">HIRO</a> ·
-          <a href="https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/images/kanji.png" target="_blank">KANJI</a>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
 
 
 <!-- ══ GUIDE SCREEN ══ -->
@@ -482,8 +406,6 @@ function goToMain() {
   landing.style.transition = 'opacity 0.5s ease';
   setTimeout(() => landing.classList.add('gone'), 500);
   document.getElementById('nav-bar').style.display = 'flex';
-  // Set up marker events now that scene is in DOM
-  setupMarkers();
   switchTab('map');
   startGPS();
 }
@@ -707,44 +629,8 @@ function renderPlaceList() {
   `).join('');
 }
 
-// ════════════════════════════════════════
-// AR MARKERS
-// ════════════════════════════════════════
-
-function setupMarkers() {
-  const scene = document.getElementById('ar-scene');
-  const attach = () => {
-    [['m-hiro',0],['m-kanji',1],['m-barcode0',2]].forEach(([id, idx]) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.addEventListener('markerFound', () => onMarkerFound(idx));
-      el.addEventListener('markerLost',  () => onMarkerLost());
-    });
-  };
-  if (scene && scene.hasLoaded) {
-    attach();
-  } else if (scene) {
-    scene.addEventListener('loaded', attach);
-    setTimeout(attach, 3000); // fallback
-  }
-}
-
-function onMarkerFound(placeIdx) {
-  const place = PLACES[placeIdx];
-  document.getElementById('reticle').style.opacity = '0';
-  document.getElementById('found-ring').classList.add('show');
-  document.getElementById('ar-found-tag').textContent = '✦ ' + place.name;
-  setTimeout(() => openModal(placeIdx, true), 500);
-}
-
-function onMarkerLost() {
-  document.getElementById('reticle').style.opacity = '1';
-  document.getElementById('found-ring').classList.remove('show');
-  document.getElementById('ar-found-tag').textContent = 'Ищу маркер...';
-}
-
-function showBarcodeInfo() {
-  alert('Barcode 0 — распечатай QR/Barcode маркер типа "3x3 matrix 0" из библиотеки AR.js.\nОткрой: github.com/AR-js-org/AR.js > data > patt');
+function openAR() {
+  window.location.href = 'ar.html';
 }
 
 // ════════════════════════════════════════
