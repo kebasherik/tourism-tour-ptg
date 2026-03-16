@@ -407,7 +407,8 @@ function goToMain() {
 }
 
 function switchTab(tab) {
-  ['map','ar','guide'].forEach(t => {
+  if (tab === 'ar') { openAR(); return; }
+  ['map','guide'].forEach(t => {
     document.getElementById('s-' + t).classList.remove('active');
     document.getElementById('nb-' + t).classList.remove('active');
   });
@@ -415,12 +416,9 @@ function switchTab(tab) {
   document.getElementById('nb-' + tab).classList.add('active');
   currentTab = tab;
 
-  // Nav indicator
-  const btns = ['map','ar','guide'];
-  const idx = btns.indexOf(tab);
   const ind = document.getElementById('nav-ind');
   const w = 100/3;
-  ind.style.left = (idx * w) + '%';
+  ind.style.left = (tab === 'map' ? 0 : 66.6) + '%';
   ind.style.width = w + '%';
 
   if (tab === 'map') renderMap();
