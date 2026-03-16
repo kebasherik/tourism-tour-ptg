@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Пятигорск · AR Путеводитель</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Jost:wght@200;300;400;500&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.0/aframe.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --gold: #C9A84C; --gold-light: #E8C97A; --gold-dim: rgba(201,168,76,0.15);
+      --dark: #0D0B08; --dark2: #1A1611; --warm: #2A2218;
+      --cream: #F0E6D0; --sepia: #8B6B3D; --red: #C0392B;
+      --green: #2ECC71;
+    }
+    html, body { width:100%; height:100%; background:var(--dark); font-family:'Jost',sans-serif; color:var(--cream); overflow:hidden; }
+
+    /* ════ SCREENS ════ */
+    /* NOTE: AR screen must never get display:none — A-Frame dies.
+       All screens stay rendered; inactive ones are pushed behind with visibility:hidden */
+    .screen { position:fixed; inset:0; display:flex; flex-direction:column;
+              visibility:hidden; pointer-events:none; z-index:0; }
+    .screen.active { visibility:visible; pointer-events:auto; z-index:10; }
+    #s-landing { z-index:20; }
+    #s-landing.gone { display:none; }
+
+    /* ════ LANDING ════ */
+    #s-landing { background:var(--dark); align-items:center; justify-content:space-between; overflow:hidden; }
+    .lnd-top { width:100%; padding:28px 28px 0; display:flex; justify-content:space-between; align-items:center; }
+    .lnd-top .lbl { font-size:9px; letter-spacing:5px; text-transform:uppercase; color:var(--gold); opacity:.6; }
+    .lnd-top .yr  { font-family:'Cormorant Garamond',serif; font-size:13px; color:var(--sepia); font-style:italic; }
+
+    .lnd-hero { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:0 24px; position:relative; width:100%; }
+    .mtn-bg { position:absolute; bottom:0; left:0; right:0; height:50%; pointer-events:none; }
+    .mtn-bg svg { width:100%; height:auto; position:absolute; bottom:0; opacity:.1; }
+    .ring { width:160px; height:160px; border-radius:50%; border:1px solid rgba(201,168,76,.2); display:flex; align-items:center; justify-content:center; position:relative; margin-bottom:24px; animation:spin 20s linear infinite; }
+    .ring::before { content:''; position:absolute; inset:12px; border-radius:50%; border:1px solid rgba(201,168,76,.12); }
+    .ring-icon { font-size:48px; animation:spin-r 20s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    @keyframes spin-r { to { transform:rotate(-360deg); } }
+    .eyebrow { font-size:9px; letter-spacing:5px; text-transform:uppercase; color:var(--gold); opacity:.7; margin-bottom:12px; }
+    h1 { font-family:'Cormorant Garamond',serif; font-size:clamp(46px,11vw,68px); font-weight:300; line-height:.92; color:var(--cream); margin-bottom:4px; }
+    h1 em { font-style:italic; color:var(--gold-light); }
+    .sub { font-size:10px; letter-spacing:4px; text-transform:uppercase; color:var(--sepia); margin:14px 0 28px; }
+    .desc { font-size:12px; font-weight:300; line-height:1.8; color:rgba(240,230,208,.5); max-width:280px; margin-bottom:32px; }
+
+    .btn-primary { display:inline-flex; align-items:center; gap:10px; background:transparent; border:1px solid var(--gold); color:var(--gold); font-family:'Jost',sans-serif; font-size:10px; font-weight:400; letter-spacing:4px; text-transform:uppercase; padding:14px 32px; cursor:pointer; position:relative; overflow:hidden; transition:color .3s; }
+    .btn-primary::before { content:''; position:absolute; inset:0; background:var(--gold); transform:scaleX(0); transform-origin:left; transition:transform .4s ease; z-index:-1; }
+    .btn-primary:hover::before { transform:scaleX(1); }
+    .btn-primary:hover { color:var(--dark); }
+
+    .lnd-stats { width:100%; display:flex; border-top:1px solid rgba(201,168,76,.1); }
+    .stat { flex:1; padding:18px 8px; text-align:center; border-right:1px solid rgba(201,168,76,.1); }
+    .stat:last-child { border-right:none; }
+    .stat-icon { font-size:16px; display:block; margin-bottom:4px; }
+    .stat-lbl { font-size:8px; letter-spacing:2px; text-transform:uppercase; color:var(--sepia); }
+
+    /* ════ NAV BAR ════ */
+    .nav-bar { position:fixed; bottom:0; left:0; right:0; height:64px; background:rgba(13,11,8,.96); border-top:1px solid rgba(201,168,76,.15); display:flex; z-index:500; backdrop-filter:blur(12px); }
+    .nav-btn { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; background:none; border:none; cursor:pointer; color:rgba(240,230,208,.35); font-family:'Jost',sans-serif; font-size:8px; letter-spacing:2px; text-transform:uppercase; transition:color .2s; }
+    .nav-btn.active { color:var(--gold); }
+    .nav-btn svg { width:20px; height:20px; }
+    .nav-indicator { position:absolute; top:0; height:2px; background:var(--gold); transition:left .3s ease, width .3s ease; }
+
+    /* ════ TOP BAR ════ */
+    .top-bar { height:56px; min-height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 20px; background:rgba(13,11,8,.9); border-bottom:1px solid rgba(201,168,76,.1); flex-shrink:0; }
+    .tb-logo { font-family:'Cormorant Garamond',serif; font-size:20px; font-weight:300; color:var(--cream); }
+    .tb-logo span { color:var(--gold); font-style:italic; }
+    .tb-tag { font-size:8px; letter-spacing:3px; text-transform:uppercase; color:var(--sepia); }
+
+    /* ════ MAP SCREEN ════ */
+    #s-map { background:var(--dark); padding-bottom:64px; }
+    .map-wrap { flex:1; position:relative; overflow:hidden; }
+    #map-canvas { width:100%; height:100%; display:block; }
+
+    /* Map legend */
+    .map-legend { position:absolute; top:12px; right:12px; background:rgba(13,11,8,.85); border:1px solid rgba(201,168,76,.2); padding:12px 14px; backdrop-filter:blur(8px); }
+    .legend-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:9px; letter-spacing:1px; text-transform:uppercase; color:rgba(240,230,208,.5); }
+    .legend-row:last-child { margin-bottom:0; }
+    .leg-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+    /* GPS status */
+    .gps-bar { padding:10px 16px; display:flex; align-items:center; gap:8px; border-top:1px solid rgba(201,168,76,.08); flex-shrink:0; }
+    .gps-dot { width:7px; height:7px; border-radius:50%; background:var(--green); animation:blink 2s ease-in-out infinite; flex-shrink:0; }
+    .gps-dot.off { background:var(--sepia); animation:none; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+    .gps-text { font-size:10px; letter-spacing:1px; color:rgba(240,230,208,.4); }
+
+    /* Place list */
+    .place-list { overflow-y:auto; padding:0 0 8px; flex-shrink:0; max-height:38%; border-top:1px solid rgba(201,168,76,.1); }
+    .place-item { display:flex; align-items:center; gap:14px; padding:12px 16px; border-bottom:1px solid rgba(201,168,76,.07); cursor:pointer; transition:background .15s; }
+    .place-item:hover { background:rgba(201,168,76,.04); }
+    .place-item.active-place { background:rgba(201,168,76,.08); }
+    .pi-num { width:26px; height:26px; border:1px solid rgba(201,168,76,.3); display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--gold); font-weight:400; flex-shrink:0; }
+    .pi-info { flex:1; min-width:0; }
+    .pi-name { font-size:12px; font-weight:400; color:var(--cream); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pi-dist { font-size:10px; color:var(--sepia); margin-top:2px; }
+    .pi-marker { font-size:9px; letter-spacing:2px; text-transform:uppercase; color:rgba(201,168,76,.4); }
+
+    /* ════ AR SCREEN ════ */
+    #s-ar { padding-bottom:64px; position:relative; background:#000; }
+    #s-ar .top-bar { position:relative; z-index:200; }
+    #ar-scene-container { flex:1; position:relative; overflow:hidden; }
+    #ar-scene-container a-scene { position:absolute !important; inset:0 !important; width:100% !important; height:100% !important; }
+
+    .ar-overlay { position:absolute; inset:0; pointer-events:none; z-index:100; }
+    .reticle { position:absolute; top:50%; left:50%; transform:translate(-50%,-55%); width:180px; height:180px; transition:opacity .3s; }
+    .rc { position:absolute; width:22px; height:22px; border-color:var(--gold); border-style:solid; animation:rp 2s ease-in-out infinite; }
+    .rc.tl { top:0;left:0; border-width:2px 0 0 2px; }
+    .rc.tr { top:0;right:0; border-width:2px 2px 0 0; }
+    .rc.bl { bottom:0;left:0; border-width:0 0 2px 2px; }
+    .rc.br { bottom:0;right:0; border-width:0 2px 2px 0; }
+    @keyframes rp { 0%,100%{opacity:.35;transform:scale(1)} 50%{opacity:.85;transform:scale(1.06)} }
+
+    .ar-hint { position:absolute; bottom:0; left:0; right:0; padding:16px 20px 20px; background:linear-gradient(to top,rgba(13,11,8,.8),transparent); text-align:center; }
+    .ar-hint-text { font-size:10px; letter-spacing:2px; text-transform:uppercase; color:rgba(240,230,208,.45); }
+    .ar-hint-sub { font-size:11px; color:rgba(240,230,208,.25); margin-top:6px; line-height:1.6; }
+    .ar-hint-sub a { color:var(--gold); pointer-events:auto; text-decoration:none; }
+
+    /* Marker detected ring */
+    .found-ring { position:absolute; top:50%; left:50%; transform:translate(-50%,-55%); width:180px; height:180px; border-radius:50%; border:2px solid var(--gold); opacity:0; transition:opacity .3s; animation:found-pulse 1.5s ease-in-out infinite; }
+    .found-ring.show { opacity:.6; }
+    @keyframes found-pulse { 0%,100%{transform:translate(-50%,-55%) scale(1)} 50%{transform:translate(-50%,-55%) scale(1.08)} }
+
+    /* ════ INFO MODAL ════ */
+    #info-modal { position:fixed; bottom:-400px; left:12px; right:12px; background:rgba(13,11,8,.97); border:1px solid rgba(201,168,76,.2); z-index:600; transition:bottom .45s cubic-bezier(.34,1.56,.64,1); backdrop-filter:blur(16px); max-height:65vh; display:flex; flex-direction:column; overflow:hidden; }
+    #info-modal.show { bottom:70px; }
+    .modal-head { padding:20px 20px 14px; border-bottom:1px solid rgba(201,168,76,.1); flex-shrink:0; }
+    .modal-tag { font-size:8px; letter-spacing:4px; text-transform:uppercase; color:var(--gold); margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+    .modal-tag::before { content:''; display:inline-block; width:16px; height:1px; background:var(--gold); }
+    .modal-title { font-family:'Cormorant Garamond',serif; font-size:26px; font-weight:300; color:var(--cream); line-height:1; }
+    .modal-year { font-family:'Cormorant Garamond',serif; font-size:13px; font-style:italic; color:var(--sepia); margin-top:3px; }
+    .modal-body { padding:14px 20px 18px; overflow-y:auto; flex:1; }
+    .modal-text { font-size:12px; font-weight:300; line-height:1.85; color:rgba(240,230,208,.6); }
+    .modal-actions { padding:0 20px 18px; display:flex; gap:10px; flex-shrink:0; }
+    .btn-audio { flex:1; display:flex; align-items:center; justify-content:center; gap:8px; padding:12px; background:var(--gold-dim); border:1px solid rgba(201,168,76,.3); color:var(--gold); font-family:'Jost',sans-serif; font-size:9px; letter-spacing:3px; text-transform:uppercase; cursor:pointer; transition:background .2s; }
+    .btn-audio:hover { background:rgba(201,168,76,.25); }
+    .btn-audio.playing { background:rgba(201,168,76,.2); border-color:var(--gold); }
+    .btn-audio svg { width:14px; height:14px; flex-shrink:0; }
+    .btn-close-modal { width:42px; height:42px; background:none; border:1px solid rgba(201,168,76,.15); color:rgba(240,230,208,.4); cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; transition:border-color .2s,color .2s; flex-shrink:0; }
+    .btn-close-modal:hover { border-color:var(--gold); color:var(--gold); }
+
+    /* Audio wave animation */
+    .audio-wave { display:flex; align-items:center; gap:2px; height:14px; }
+    .audio-wave span { display:inline-block; width:2px; background:var(--gold); border-radius:1px; animation:wave 0.8s ease-in-out infinite; }
+    .audio-wave span:nth-child(2) { animation-delay:.1s; }
+    .audio-wave span:nth-child(3) { animation-delay:.2s; }
+    .audio-wave span:nth-child(4) { animation-delay:.3s; }
+    .audio-wave span:nth-child(5) { animation-delay:.4s; }
+    @keyframes wave { 0%,100%{height:4px} 50%{height:14px} }
+
+    /* ════ GUIDE SCREEN ════ */
+    #s-guide { background:var(--dark); padding-bottom:64px; overflow:hidden; }
+    .guide-scroll { flex:1; overflow-y:auto; padding:16px; }
+    .guide-card { border:1px solid rgba(201,168,76,.15); margin-bottom:12px; overflow:hidden; transition:border-color .2s; }
+    .guide-card:hover { border-color:rgba(201,168,76,.3); }
+    .gc-head { padding:16px; display:flex; gap:14px; align-items:flex-start; cursor:pointer; }
+    .gc-num { width:32px; height:32px; border:1px solid rgba(201,168,76,.3); display:flex; align-items:center; justify-content:center; font-family:'Cormorant Garamond',serif; font-size:16px; color:var(--gold); flex-shrink:0; }
+    .gc-info { flex:1; }
+    .gc-name { font-family:'Cormorant Garamond',serif; font-size:20px; font-weight:300; color:var(--cream); line-height:1; }
+    .gc-year { font-size:10px; color:var(--sepia); margin-top:3px; }
+    .gc-marker { font-size:8px; letter-spacing:3px; text-transform:uppercase; color:rgba(201,168,76,.4); margin-top:4px; }
+    .gc-body { padding:0 16px 16px; border-top:1px solid rgba(201,168,76,.08); display:none; }
+    .gc-body.open { display:block; }
+    .gc-text { font-size:12px; font-weight:300; line-height:1.8; color:rgba(240,230,208,.55); padding-top:12px; }
+    .gc-audio-btn { margin-top:12px; display:inline-flex; align-items:center; gap:8px; background:none; border:1px solid rgba(201,168,76,.25); color:var(--gold); font-family:'Jost',sans-serif; font-size:9px; letter-spacing:3px; text-transform:uppercase; padding:10px 18px; cursor:pointer; transition:background .2s; }
+    .gc-audio-btn:hover { background:var(--gold-dim); }
+
+    /* ════ HTTPS WARNING ════ */
+    #https-warn { position:fixed; inset:0; background:var(--dark); z-index:1000; align-items:center; justify-content:center; flex-direction:column; text-align:center; padding:40px; display:none; }
+    #https-warn.show { display:flex; }
+    #https-warn h2 { font-family:'Cormorant Garamond',serif; font-size:30px; font-weight:300; margin:16px 0 12px; }
+    #https-warn p { font-size:12px; font-weight:300; color:rgba(240,230,208,.45); line-height:1.8; max-width:300px; }
+    #https-warn code { color:var(--gold); background:rgba(201,168,76,.08); padding:2px 8px; }
+    .warn-btn { margin-top:24px; }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width:3px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:rgba(201,168,76,.2); }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     LANDING
+══════════════════════════════════════ -->
+<div id="s-landing" class="screen active">
+  <div class="lnd-top">
+    <div class="lbl">WebAR Experience</div>
+    <div class="yr">Кавказские Минеральные Воды</div>
+  </div>
+
+  <div class="lnd-hero">
+    <div class="mtn-bg">
+      <svg viewBox="0 0 800 220" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMax meet">
+        <path d="M0,220 L60,140 L110,165 L190,75 L270,115 L340,45 L390,85 L460,25 L530,72 L600,18 L660,62 L720,38 L800,90 L800,220 Z" fill="var(--gold)"/>
+      </svg>
+    </div>
+    <div class="ring"><span class="ring-icon">🏔</span></div>
+    <div class="eyebrow">Пятигорск · 1780 — наши дни</div>
+    <h1>Путе-<br><em>водитель</em></h1>
+    <div class="sub">Дополненная реальность</div>
+    <p class="desc">GPS-маршрут по историческим местам. Наводи камеру на маркеры — слушай историю города.</p>
+    <button class="btn-primary" onclick="goToMain()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      Начать маршрут
+    </button>
+  </div>
+
+  <div class="lnd-stats">
+    <div class="stat"><span class="stat-icon">🏛</span><div class="stat-lbl">6 мест</div></div>
+    <div class="stat"><span class="stat-icon">📍</span><div class="stat-lbl">GPS карта</div></div>
+    <div class="stat"><span class="stat-icon">🎧</span><div class="stat-lbl">Аудиогид</div></div>
+    <div class="stat"><span class="stat-icon">✨</span><div class="stat-lbl">AR маркеры</div></div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════
+     MAIN APP (Map + AR + Guide tabs)
+══════════════════════════════════════ -->
+
+<!-- NAV BAR -->
+<nav class="nav-bar" id="nav-bar" style="display:none">
+  <div class="nav-indicator" id="nav-ind"></div>
+  <button class="nav-btn active" id="nb-map" onclick="switchTab('map')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 9m0 8V9m0 0L9 7"/></svg>
+    Карта
+  </button>
+  <button class="nav-btn" id="nb-ar" onclick="switchTab('ar')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
+    AR камера
+  </button>
+  <button class="nav-btn" id="nb-guide" onclick="switchTab('guide')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+    Гид
+  </button>
+</nav>
+
+
+<!-- ══ MAP SCREEN ══ -->
+<div id="s-map" class="screen">
+  <div class="top-bar">
+    <div class="tb-logo">Пяти<span>горск</span></div>
+    <div class="tb-tag">Маршрут · 6 объектов</div>
+  </div>
+  <div class="map-wrap">
+    <canvas id="map-canvas"></canvas>
+    <div class="map-legend">
+      <div class="legend-row"><div class="leg-dot" style="background:var(--gold)"></div>Исторический объект</div>
+      <div class="legend-row"><div class="leg-dot" style="background:var(--green)"></div>Вы здесь</div>
+      <div class="legend-row"><div class="leg-dot" style="background:rgba(201,168,76,.3); border:1px solid var(--gold)"></div>Ближайший</div>
+    </div>
+  </div>
+  <div class="gps-bar">
+    <div class="gps-dot" id="gps-dot"></div>
+    <div class="gps-text" id="gps-text">Получение GPS-координат...</div>
+    <button id="demo-btn" onclick="toggleDemo()" style="margin-left:auto;background:none;border:1px solid rgba(201,168,76,.25);color:var(--sepia);font-family:'Jost',sans-serif;font-size:8px;letter-spacing:2px;text-transform:uppercase;padding:5px 10px;cursor:pointer;white-space:nowrap;transition:border-color .2s,color .2s">Демо-режим</button>
+  </div>
+  <div class="place-list" id="place-list"></div>
+</div>
+
+
+<!-- ══ AR SCREEN ══ -->
+<div id="s-ar" class="screen">
+  <div class="top-bar">
+    <div class="tb-logo">Пяти<span>горск</span> · AR</div>
+    <div class="tb-tag" id="ar-found-tag">Ищу маркер...</div>
+  </div>
+
+  <div id="ar-scene-container">
+
+    <a-scene id="ar-scene"
+      embedded
+      arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+      renderer="logarithmicDepthBuffer: true; antialias: true;"
+      vr-mode-ui="enabled: false">
+
+      <a-marker preset="hiro" id="m-hiro" emitevents="true">
+        <a-box position="0 .05 0" width="2.2" height=".08" depth="2.2" color="#1A1611" opacity=".95"></a-box>
+        <a-box position="0 .12 1.05" width="2.2" height=".05" depth=".05" color="#C9A84C" opacity=".7"></a-box>
+        <a-box position="0 .12 -1.05" width="2.2" height=".05" depth=".05" color="#C9A84C" opacity=".7"></a-box>
+        <a-box position="1.05 .12 0" width=".05" height=".05" depth="2.2" color="#C9A84C" opacity=".7"></a-box>
+        <a-box position="-1.05 .12 0" width=".05" height=".05" depth="2.2" color="#C9A84C" opacity=".7"></a-box>
+        <a-cylinder position="0 .6 0" radius=".05" height="1.1" color="#C9A84C" opacity=".5"></a-cylinder>
+        <a-plane position="0 1.35 0" rotation="-90 0 0" width="2" height="1.05" color="#0D0B08" opacity=".95"></a-plane>
+        <a-plane position="0 1.44 0" rotation="-90 0 0" width="1.85" height=".025" color="#C9A84C" opacity=".45"></a-plane>
+        <a-plane position="0 .8 0" rotation="-90 0 0" width="1.85" height=".025" color="#C9A84C" opacity=".45"></a-plane>
+        <a-text value="ДОМИК ЛЕРМОНТОВА" position="0 1.33 .01" rotation="-90 0 0" align="center" color="#C9A84C" width="3.2" font="mozillavr"></a-text>
+        <a-text value="1841 год" position="0 1.17 .01" rotation="-90 0 0" align="center" color="#8B6B3D" width="2.5" font="mozillavr"></a-text>
+        <a-text value="Последнее место жительства М. Ю. Лермонтова" position="0 1.02 .01" rotation="-90 0 0" align="center" color="#F0E6D0" width="2.8" font="mozillavr" line-height="55"></a-text>
+        <a-box position=".85 .2 .85" width=".1" height=".2" depth=".1" color="#C9A84C" opacity=".5" animation="property:rotation;to:0 360 0;dur:4000;loop:true;easing:linear"></a-box>
+        <a-box position="-.85 .2 .85" width=".1" height=".2" depth=".1" color="#C9A84C" opacity=".5" animation="property:rotation;to:0 360 0;dur:5500;loop:true;easing:linear"></a-box>
+        <a-box position=".85 .2 -.85" width=".1" height=".2" depth=".1" color="#C9A84C" opacity=".5" animation="property:rotation;to:0 -360 0;dur:4800;loop:true;easing:linear"></a-box>
+        <a-box position="-.85 .2 -.85" width=".1" height=".2" depth=".1" color="#C9A84C" opacity=".5" animation="property:rotation;to:0 -360 0;dur:3700;loop:true;easing:linear"></a-box>
+      </a-marker>
+
+      <a-marker preset="kanji" id="m-kanji" emitevents="true">
+        <a-box position="0 .05 0" width="2.2" height=".08" depth="2.2" color="#0D1A1A" opacity=".95"></a-box>
+        <a-cylinder position="0 .5 0" radius=".5" height=".06" color="#1A3A3A" opacity=".8"></a-cylinder>
+        <a-cylinder position="0 1.1 0" radius=".04" height="1.2" color="#4ABFBF" opacity=".6"></a-cylinder>
+        <a-torus position="0 1.7 0" radius=".55" radius-tubular=".02" color="#4ABFBF" opacity=".5" animation="property:rotation;to:0 360 0;dur:8000;loop:true;easing:linear"></a-torus>
+        <a-sphere position="0 2.3 0" radius=".15" color="#4ABFBF" opacity=".7" animation="property:scale;to:1.3 1.3 1.3;dur:1500;dir:alternate;loop:true;easing:easeInOutSine"></a-sphere>
+        <a-plane position="0 1.38 0" rotation="-90 0 0" width="2.1" height=".95" color="#051515" opacity=".9"></a-plane>
+        <a-text value="ЭОЛОВА АРФА" position="0 1.35 .01" rotation="-90 0 0" align="center" color="#4ABFBF" width="3" font="mozillavr"></a-text>
+        <a-text value="1831 год" position="0 1.19 .01" rotation="-90 0 0" align="center" color="#2A8080" width="2.5" font="mozillavr"></a-text>
+        <a-text value="Беседка с арфой на горе Машук" position="0 1.04 .01" rotation="-90 0 0" align="center" color="#B0E0E0" width="2.8" font="mozillavr" line-height="55"></a-text>
+      </a-marker>
+
+      <a-marker type="barcode" value="0" id="m-barcode0" emitevents="true">
+        <a-box position="0 .05 0" width="2.2" height=".08" depth="2.2" color="#0D0818" opacity=".95"></a-box>
+        <a-cylinder position="0 .7 0" radius=".4" height="1.4" color="#6A0F8E" opacity=".3" open-ended="true"></a-cylinder>
+        <a-cylinder position="0 .7 0" radius=".55" height="1.4" color="#9B59B6" opacity=".15" open-ended="true"></a-cylinder>
+        <a-sphere position="0 1.5 0" radius=".25" color="#9B59B6" opacity=".8" wireframe="true" animation="property:rotation;to:360 360 0;dur:6000;loop:true;easing:linear"></a-sphere>
+        <a-plane position="0 1.38 0" rotation="-90 0 0" width="2.1" height=".95" color="#080512" opacity=".92"></a-plane>
+        <a-text value="ПРОВАЛ" position="0 1.35 .01" rotation="-90 0 0" align="center" color="#9B59B6" width="3" font="mozillavr"></a-text>
+        <a-text value="1837 год" position="0 1.19 .01" rotation="-90 0 0" align="center" color="#6A0F8E" width="2.5" font="mozillavr"></a-text>
+        <a-text value="Подземное озеро синего цвета" position="0 1.04 .01" rotation="-90 0 0" align="center" color="#D7B4F3" width="2.8" font="mozillavr" line-height="55"></a-text>
+      </a-marker>
+
+      <a-entity camera></a-entity>
+    </a-scene>
+
+    <div class="ar-overlay" id="ar-overlay">
+      <div class="reticle" id="reticle">
+        <div class="rc tl"></div><div class="rc tr"></div>
+        <div class="rc bl"></div><div class="rc br"></div>
+      </div>
+      <div class="found-ring" id="found-ring"></div>
+      <div class="ar-hint">
+        <div class="ar-hint-text"><span id="ar-status-dot" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--gold);margin-right:6px;animation:blink 1.5s infinite;vertical-align:middle"></span>Наведи камеру на маркер</div>
+        <div class="ar-hint-sub">
+          Маркеры: <a href="https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/images/hiro.png" target="_blank">HIRO</a> ·
+          <a href="https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/images/kanji.png" target="_blank">KANJI</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ GUIDE SCREEN ══ -->
+<div id="s-guide" class="screen">
+  <div class="top-bar">
+    <div class="tb-logo">Путе<span>водитель</span></div>
+    <div class="tb-tag">Все объекты</div>
+  </div>
+  <div class="guide-scroll" id="guide-list"></div>
+</div>
+
+
+<!-- ══ INFO MODAL ══ -->
+<div id="info-modal">
+  <div class="modal-head">
+    <div class="modal-tag" id="m-tag">Объект</div>
+    <div class="modal-title" id="m-title">Название</div>
+    <div class="modal-year" id="m-year">Год</div>
+  </div>
+  <div class="modal-body">
+    <p class="modal-text" id="m-text">Описание</p>
+  </div>
+  <div class="modal-actions">
+    <button class="btn-audio" id="audio-btn" onclick="toggleAudio()">
+      <svg id="audio-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15.536 8.464a5 5 0 010 7.072M12 6a7 7 0 010 12M8.464 8.464a5 5 0 000 7.072M12 10v4"/></svg>
+      <span id="audio-label">Слушать рассказ</span>
+    </button>
+    <button class="btn-close-modal" onclick="closeModal()">✕</button>
+  </div>
+</div>
+
+
+<!-- ══ HTTPS WARNING ══ -->
+<div id="https-warn">
+  <div style="font-size:48px">📷</div>
+  <h2>Нужен HTTPS</h2>
+  <p>WebAR требует доступ к камере. Открой файл через локальный сервер:<br><br><code>npx serve .</code><br><br>или задеплой на <code>Netlify / Vercel</code></p>
+  <button class="btn-primary warn-btn" onclick="document.getElementById('https-warn').classList.remove('show')">Понятно</button>
+</div>
+
+
+<script>
+// ════════════════════════════════════════
+// DATA
+// ════════════════════════════════════════
+const PLACES = [
+  {
+    id: 1,
+    name: 'Домик Лермонтова',
+    year: '1841 год',
+    marker: 'HIRO',
+    markerColor: '#C9A84C',
+    lat: 44.0464, lng: 43.0622,
+    tag: 'Объект #01 · Литература',
+    shortDesc: 'Последнее жилище поэта',
+    text: 'Небольшой саманный домик, где Михаил Юрьевич Лермонтов провёл последние два месяца своей жизни — с мая по июль 1841 года. Здесь были написаны несколько поздних стихотворений. 15 июля 1841 года Лермонтов был убит на дуэли с Николаем Мартыновым у подножия горы Машук. Сегодня здесь работает музей-заповедник. В комнатах сохранились личные вещи поэта, его рукописи и акварели.',
+    audio: 'Домик Лермонтова. Небольшой саманный домик, где Михаил Юрьевич Лермонтов провёл последние два месяца своей жизни. Здесь были написаны несколько поздних стихотворений. Пятнадцатого июля тысяча восемьсот сорок первого года Лермонтов был убит на дуэли с Мартыновым у подножия горы Машук. Сегодня в домике работает музей.'
+  },
+  {
+    id: 2,
+    name: 'Эолова Арфа',
+    year: '1831 год',
+    marker: 'KANJI',
+    markerColor: '#4ABFBF',
+    lat: 44.0494, lng: 43.0602,
+    tag: 'Объект #02 · Архитектура',
+    shortDesc: 'Беседка с поющими струнами',
+    text: 'Изящная беседка-ротонда на обрыве горы Машук, построенная в 1831 году братьями Бернардацци. Внутри первоначально была установлена настоящая эолова арфа — инструмент, звучащий от ветра. Струны натягивались на раму, и в тихие ночи жители города снизу слышали таинственную музыку. Лермонтов упоминал это место в своих произведениях. Современная арфа — с электромеханическим приводом.',
+    audio: 'Эолова Арфа. Изящная беседка-ротонда на обрыве горы Машук, построенная в тысяча восемьсот тридцать первом году архитекторами братьями Бернардацци. Внутри была установлена настоящая эолова арфа — инструмент, звучащий от ветра. В тихие ночи жители города снизу слышали таинственную музыку. Лермонтов упоминал это место в своих произведениях.'
+  },
+  {
+    id: 3,
+    name: 'Провал',
+    year: '1837 год',
+    marker: 'Barcode 0',
+    markerColor: '#9B59B6',
+    lat: 44.0412, lng: 43.0685,
+    tag: 'Объект #03 · Природа',
+    shortDesc: 'Подземное озеро синего цвета',
+    text: 'Уникальный природный памятник — подземное карстовое озеро с водой пронзительно лазурного цвета. Глубина провала около 41 метра, диаметр — 15 метров. Вода насыщена сероводородом, что придаёт ей необычный цвет. В 1857 году прорыли тоннель, и озеро стало доступно для посещения. Илья Ильич Обломов у Гончарова мечтал о провале. Остап Бендер из «Золотого телёнка» продавал билеты на вход в провал.',
+    audio: 'Провал. Уникальный природный памятник — подземное карстовое озеро с водой пронзительно лазурного, синего цвета. Глубина провала около сорока одного метра. Вода насыщена сероводородом, что придаёт ей необычный цвет. В тысяча восемьсот пятьдесят седьмом году прорыли тоннель, и озеро стало доступно для посещения. Остап Бендер из Золотого телёнка продавал здесь билеты.'
+  },
+  {
+    id: 4,
+    name: 'Нарзанная галерея',
+    year: '1848 год',
+    marker: '—',
+    markerColor: '#5DADE2',
+    lat: 44.0424, lng: 43.0578,
+    tag: 'Объект #04 · Курорт',
+    shortDesc: 'Источники минеральных вод',
+    text: 'Галерея построена в 1848 году в псевдоготическом стиле по проекту Самуила Уптона. Внутри — питьевые бюветы с минеральными водами разных типов. «Нарзан» в переводе с кабардинского означает «богатырский напиток». Лев Толстой лечился здесь дважды. Здание галереи считается одним из лучших образцов курортной архитектуры XIX века на Кавказе.',
+    audio: 'Нарзанная галерея. Построена в тысяча восемьсот сорок восьмом году в псевдоготическом стиле. Внутри — питьевые бюветы с минеральными водами. Нарзан в переводе с кабардинского означает богатырский напиток. Лев Толстой лечился здесь дважды. Здание считается одним из лучших образцов курортной архитектуры девятнадцатого века на Кавказе.'
+  },
+  {
+    id: 5,
+    name: 'Грот Лермонтова',
+    year: '1829 год',
+    marker: '—',
+    markerColor: '#E67E22',
+    lat: 44.0481, lng: 43.0614,
+    tag: 'Объект #05 · Память',
+    shortDesc: 'Место уединения поэта',
+    text: 'Небольшая природная пещера на склоне горы Горячей, расширенная и облагороженная в 1829 году. Лермонтов бывал здесь во время своих приездов на Кавказские воды и описал грот в романе «Герой нашего времени» — именно здесь Печорин встречался с Верой. От грота открывается вид на Бульвар и горы.',
+    audio: 'Грот Лермонтова. Небольшая природная пещера на склоне горы Горячей, облагороженная в тысяча восемьсот двадцать девятом году. Лермонтов описал грот в романе Герой нашего времени — именно здесь Печорин встречался с Верой. От грота открывается вид на Бульвар и горы.'
+  },
+  {
+    id: 6,
+    name: 'Место дуэли Лермонтова',
+    year: '1841 год',
+    marker: '—',
+    markerColor: '#C0392B',
+    lat: 44.0385, lng: 43.0640,
+    tag: 'Объект #06 · Память',
+    shortDesc: 'У подножия горы Машук',
+    text: 'У подножия горы Машук 15 июля 1841 года состоялась дуэль Лермонтова с Мартыновым. Поэт был убит наповал. Место отмечено обелиском и статуей орла — символом Кавказа. Ежегодно 15 июля сюда приходят тысячи людей. В ночь после дуэли разразилась страшная гроза — современники воспринимали это как знак.',
+    audio: 'Место дуэли Лермонтова. Здесь, у подножия горы Машук, пятнадцатого июля тысяча восемьсот сорок первого года состоялась дуэль Лермонтова с Мартыновым. Поэту было двадцать шесть лет. Место отмечено обелиском и статуей орла — символа Кавказа. В ночь после дуэли разразилась страшная гроза.'
+  }
+];
+
+// ════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════
+let currentTab = null;
+let userLat = null, userLng = null;
+let watchId = null;
+let arStarted = false;
+let currentModalPlace = null;
+let speechUtterance = null;
+let isSpeaking = false;
+let mapAnimFrame = null;
+
+// ════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════
+function goToMain() {
+  const landing = document.getElementById('s-landing');
+  landing.style.opacity = '0';
+  landing.style.transition = 'opacity 0.5s ease';
+  setTimeout(() => landing.classList.add('gone'), 500);
+  document.getElementById('nav-bar').style.display = 'flex';
+  // Set up marker events now that scene is in DOM
+  setupMarkers();
+  switchTab('map');
+  startGPS();
+}
+
+function switchTab(tab) {
+  ['map','ar','guide'].forEach(t => {
+    document.getElementById('s-' + t).classList.remove('active');
+    document.getElementById('nb-' + t).classList.remove('active');
+  });
+  document.getElementById('s-' + tab).classList.add('active');
+  document.getElementById('nb-' + tab).classList.add('active');
+  currentTab = tab;
+
+  // Nav indicator
+  const btns = ['map','ar','guide'];
+  const idx = btns.indexOf(tab);
+  const ind = document.getElementById('nav-ind');
+  const w = 100/3;
+  ind.style.left = (idx * w) + '%';
+  ind.style.width = w + '%';
+
+  if (tab === 'map') renderMap();
+  if (tab === 'guide') renderGuide();
+}
+
+// ════════════════════════════════════════
+// GPS
+// ════════════════════════════════════════
+function startGPS() {
+  if (!navigator.geolocation) {
+    setGPSStatus(false, 'GPS недоступен');
+    return;
+  }
+  setGPSStatus(true, 'Получаем координаты...');
+  watchId = navigator.geolocation.watchPosition(
+    pos => {
+      userLat = pos.coords.latitude;
+      userLng = pos.coords.longitude;
+      const acc = Math.round(pos.coords.accuracy);
+      setGPSStatus(true, `GPS активен · точность ${acc}м`);
+      renderMap();
+      renderPlaceList();
+    },
+    err => {
+      // Use demo coords (Pyatigorsk center) if no GPS
+      userLat = 44.0450; userLng = 43.0630;
+      setGPSStatus(false, 'Демо-режим · Пятигорск, центр');
+      renderMap();
+      renderPlaceList();
+    },
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+  );
+}
+
+function setGPSStatus(active, text) {
+  document.getElementById('gps-dot').className = 'gps-dot' + (active ? '' : ' off');
+  document.getElementById('gps-text').textContent = text;
+}
+
+function getDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const dLat = (lat2-lat1)*Math.PI/180;
+  const dLng = (lng2-lng1)*Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function formatDist(m) {
+  return m < 1000 ? Math.round(m) + ' м' : (m/1000).toFixed(1) + ' км';
+}
+
+// ════════════════════════════════════════
+// MAP CANVAS
+// ════════════════════════════════════════
+function renderMap() {
+  const canvas = document.getElementById('map-canvas');
+  if (!canvas) return;
+  const wrap = canvas.parentElement;
+  canvas.width = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  // Bounding box of all places + user
+  const allLats = PLACES.map(p => p.lat).concat(userLat ? [userLat] : []);
+  const allLngs = PLACES.map(p => p.lng).concat(userLng ? [userLng] : []);
+  const minLat = Math.min(...allLats) - 0.003;
+  const maxLat = Math.max(...allLats) + 0.003;
+  const minLng = Math.min(...allLngs) - 0.004;
+  const maxLng = Math.max(...allLngs) + 0.004;
+
+  const PAD = 40;
+  function toXY(lat, lng) {
+    const x = PAD + (lng - minLng) / (maxLng - minLng) * (W - PAD*2);
+    const y = PAD + (1 - (lat - minLat) / (maxLat - minLat)) * (H - PAD*2);
+    return [x, y];
+  }
+
+  // Background
+  ctx.fillStyle = '#0D0B08';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(201,168,76,0.06)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 6; i++) {
+    const x = PAD + i * (W - PAD*2) / 6;
+    ctx.beginPath(); ctx.moveTo(x, PAD); ctx.lineTo(x, H-PAD); ctx.stroke();
+    const y = PAD + i * (H - PAD*2) / 6;
+    ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(W-PAD, y); ctx.stroke();
+  }
+
+  // Route lines between consecutive places
+  ctx.strokeStyle = 'rgba(201,168,76,0.18)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 6]);
+  ctx.beginPath();
+  PLACES.forEach((p, i) => {
+    const [x, y] = toXY(p.lat, p.lng);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Find closest place to user
+  let closestIdx = -1, closestDist = Infinity;
+  if (userLat && userLng) {
+    PLACES.forEach((p, i) => {
+      const d = getDistance(userLat, userLng, p.lat, p.lng);
+      if (d < closestDist) { closestDist = d; closestIdx = i; }
+    });
+    // Line from user to closest
+    const [ux, uy] = toXY(userLat, userLng);
+    const [cx, cy] = toXY(PLACES[closestIdx].lat, PLACES[closestIdx].lng);
+    ctx.strokeStyle = 'rgba(46,204,113,0.3)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 5]);
+    ctx.beginPath(); ctx.moveTo(ux, uy); ctx.lineTo(cx, cy); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Place dots
+  PLACES.forEach((p, i) => {
+    const [x, y] = toXY(p.lat, p.lng);
+    const isClosest = i === closestIdx;
+
+    // Outer glow
+    const grad = ctx.createRadialGradient(x, y, 0, x, y, isClosest ? 22 : 16);
+    grad.addColorStop(0, p.markerColor + '40');
+    grad.addColorStop(1, 'transparent');
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(x, y, isClosest ? 22 : 16, 0, Math.PI*2); ctx.fill();
+
+    // Circle
+    ctx.beginPath(); ctx.arc(x, y, isClosest ? 10 : 7, 0, Math.PI*2);
+    ctx.fillStyle = isClosest ? p.markerColor : p.markerColor + 'AA';
+    ctx.fill();
+    ctx.strokeStyle = isClosest ? p.markerColor : p.markerColor + '60';
+    ctx.lineWidth = isClosest ? 2 : 1;
+    ctx.stroke();
+
+    // Number
+    ctx.fillStyle = '#0D0B08';
+    ctx.font = `bold ${isClosest ? 10 : 8}px Jost, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(p.id, x, y);
+
+    // Label
+    ctx.fillStyle = isClosest ? p.markerColor : 'rgba(240,230,208,0.5)';
+    ctx.font = `300 ${isClosest ? 11 : 10}px Jost, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(p.name, x, y + (isClosest ? 14 : 11));
+  });
+
+  // User dot
+  if (userLat && userLng) {
+    const [ux, uy] = toXY(userLat, userLng);
+    // Pulse ring
+    const now = Date.now() % 2000 / 2000;
+    const pulseR = 8 + now * 16;
+    const pulseA = 1 - now;
+    ctx.beginPath(); ctx.arc(ux, uy, pulseR, 0, Math.PI*2);
+    ctx.strokeStyle = `rgba(46,204,113,${pulseA * 0.5})`;
+    ctx.lineWidth = 1; ctx.stroke();
+    // Dot
+    ctx.beginPath(); ctx.arc(ux, uy, 7, 0, Math.PI*2);
+    ctx.fillStyle = '#2ECC71'; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+    // Label
+    ctx.fillStyle = '#2ECC71';
+    ctx.font = '300 10px Jost, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText('Вы здесь', ux, uy + 11);
+  }
+
+  // Animate pulse
+  if (currentTab === 'map') {
+    mapAnimFrame = requestAnimationFrame(renderMap);
+  }
+}
+
+// ════════════════════════════════════════
+// PLACE LIST
+// ════════════════════════════════════════
+function renderPlaceList() {
+  const list = document.getElementById('place-list');
+  const sorted = [...PLACES].map(p => ({
+    ...p,
+    dist: userLat ? getDistance(userLat, userLng, p.lat, p.lng) : null
+  })).sort((a,b) => (a.dist||999999) - (b.dist||999999));
+
+  list.innerHTML = sorted.map(p => `
+    <div class="place-item ${p.dist && p.dist < 300 ? 'active-place' : ''}" onclick="openModal(${p.id-1})">
+      <div class="pi-num">${p.id}</div>
+      <div class="pi-info">
+        <div class="pi-name">${p.name}</div>
+        <div class="pi-dist">${p.dist ? formatDist(p.dist) + ' от вас' : p.year}</div>
+      </div>
+      <div class="pi-marker" style="color:${p.markerColor}">${p.marker}</div>
+    </div>
+  `).join('');
+}
+
+// ════════════════════════════════════════
+// AR MARKERS
+// ════════════════════════════════════════
+
+function setupMarkers() {
+  const scene = document.getElementById('ar-scene');
+  const attach = () => {
+    [['m-hiro',0],['m-kanji',1],['m-barcode0',2]].forEach(([id, idx]) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('markerFound', () => onMarkerFound(idx));
+      el.addEventListener('markerLost',  () => onMarkerLost());
+    });
+  };
+  if (scene && scene.hasLoaded) {
+    attach();
+  } else if (scene) {
+    scene.addEventListener('loaded', attach);
+    setTimeout(attach, 3000); // fallback
+  }
+}
+
+function onMarkerFound(placeIdx) {
+  const place = PLACES[placeIdx];
+  document.getElementById('reticle').style.opacity = '0';
+  document.getElementById('found-ring').classList.add('show');
+  document.getElementById('ar-found-tag').textContent = '✦ ' + place.name;
+  setTimeout(() => openModal(placeIdx, true), 500);
+}
+
+function onMarkerLost() {
+  document.getElementById('reticle').style.opacity = '1';
+  document.getElementById('found-ring').classList.remove('show');
+  document.getElementById('ar-found-tag').textContent = 'Ищу маркер...';
+}
+
+function showBarcodeInfo() {
+  alert('Barcode 0 — распечатай QR/Barcode маркер типа "3x3 matrix 0" из библиотеки AR.js.\nОткрой: github.com/AR-js-org/AR.js > data > patt');
+}
+
+// ════════════════════════════════════════
+// GUIDE
+// ════════════════════════════════════════
+function renderGuide() {
+  const list = document.getElementById('guide-list');
+  list.innerHTML = PLACES.map((p, i) => `
+    <div class="guide-card">
+      <div class="gc-head" onclick="toggleGuideCard(${i})">
+        <div class="gc-num">${p.id}</div>
+        <div class="gc-info">
+          <div class="gc-name">${p.name}</div>
+          <div class="gc-year">${p.year}</div>
+          <div class="gc-marker" style="color:${p.markerColor}">AR: ${p.marker}</div>
+        </div>
+      </div>
+      <div class="gc-body" id="gc-body-${i}">
+        <p class="gc-text">${p.text}</p>
+        <button class="gc-audio-btn" onclick="speakText('${p.audio.replace(/'/g,"\\'")}')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-right:6px"><path d="M15.536 8.464a5 5 0 010 7.072M12 6a7 7 0 010 12M8.464 8.464a5 5 0 000 7.072"/></svg>
+          Воспроизвести
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleGuideCard(i) {
+  const body = document.getElementById('gc-body-' + i);
+  body.classList.toggle('open');
+}
+
+// ════════════════════════════════════════
+// MODAL
+// ════════════════════════════════════════
+function openModal(placeIdx, autoAudio = false) {
+  const p = PLACES[placeIdx];
+  currentModalPlace = p;
+  document.getElementById('m-tag').textContent = p.tag;
+  document.getElementById('m-title').textContent = p.name;
+  document.getElementById('m-year').textContent = p.year;
+  document.getElementById('m-text').textContent = p.text;
+  resetAudioBtn();
+  document.getElementById('info-modal').classList.add('show');
+  if (autoAudio) {
+    setTimeout(() => speakAndUpdateBtn(p.audio), 800);
+  }
+}
+
+function closeModal() {
+  document.getElementById('info-modal').classList.remove('show');
+  stopSpeech();
+}
+
+// ════════════════════════════════════════
+// AUDIO / SPEECH
+// ════════════════════════════════════════
+function toggleAudio() {
+  if (isSpeaking) {
+    stopSpeech();
+  } else if (currentModalPlace) {
+    speakAndUpdateBtn(currentModalPlace.audio);
+  }
+}
+
+function speakAndUpdateBtn(text) {
+  if (!('speechSynthesis' in window)) {
+    alert('Ваш браузер не поддерживает синтез речи');
+    return;
+  }
+  stopSpeech();
+  isSpeaking = true;
+  document.getElementById('audio-btn').classList.add('playing');
+  document.getElementById('audio-label').innerHTML = `
+    <span style="display:inline-flex;align-items:center;gap:3px">
+      <span class="audio-wave"><span></span><span></span><span></span><span></span><span></span></span>
+      Воспроизведение...
+    </span>`;
+
+  speechUtterance = new SpeechSynthesisUtterance(text);
+  speechUtterance.lang = 'ru-RU';
+  speechUtterance.rate = 0.9;
+  speechUtterance.pitch = 1.0;
+
+  // Try to find Russian voice
+  const voices = window.speechSynthesis.getVoices();
+  const ruVoice = voices.find(v => v.lang.startsWith('ru'));
+  if (ruVoice) speechUtterance.voice = ruVoice;
+
+  speechUtterance.onend = () => resetAudioBtn();
+  speechUtterance.onerror = () => resetAudioBtn();
+  window.speechSynthesis.speak(speechUtterance);
+}
+
+function speakText(text) {
+  speakAndUpdateBtn(text);
+}
+
+function stopSpeech() {
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  isSpeaking = false;
+  resetAudioBtn();
+}
+
+function resetAudioBtn() {
+  isSpeaking = false;
+  document.getElementById('audio-btn').classList.remove('playing');
+  document.getElementById('audio-label').textContent = 'Слушать рассказ';
+}
+
+// Load voices on mobile requires this
+if ('speechSynthesis' in window) {
+  window.speechSynthesis.onvoiceschanged = () => {};
+}
+
+// ════════════════════════════════════════
+// DEMO MODE — simulated walk through Pyatigorsk
+// ════════════════════════════════════════
+let demoActive = false;
+let demoInterval = null;
+let demoStep = 0;
+
+// Waypoints: slow walk from place 1 toward place 6
+const DEMO_WALK = [
+  [44.0464, 43.0622], // start: Домик Лермонтова
+  [44.0470, 43.0618],
+  [44.0478, 43.0612],
+  [44.0486, 43.0608],
+  [44.0494, 43.0602], // Эолова Арфа
+  [44.0488, 43.0608],
+  [44.0478, 43.0628],
+  [44.0462, 43.0645],
+  [44.0445, 43.0660],
+  [44.0430, 43.0672],
+  [44.0412, 43.0685], // Провал
+  [44.0405, 43.0672],
+  [44.0400, 43.0658],
+  [44.0395, 43.0648],
+  [44.0385, 43.0640], // Место дуэли
+];
+
+function toggleDemo() {
+  if (demoActive) {
+    stopDemo();
+  } else {
+    startDemo();
+  }
+}
+
+function startDemo() {
+  demoActive = true;
+  demoStep = 0;
+  const btn = document.getElementById('demo-btn');
+  btn.textContent = '⏹ Стоп';
+  btn.style.color = 'var(--gold)';
+  btn.style.borderColor = 'rgba(201,168,76,.5)';
+  setGPSStatus(true, 'Демо: прогулка по Пятигорску...');
+  applyDemoStep();
+  demoInterval = setInterval(() => {
+    demoStep = (demoStep + 1) % DEMO_WALK.length;
+    applyDemoStep();
+  }, 1800);
+}
+
+function stopDemo() {
+  demoActive = false;
+  clearInterval(demoInterval);
+  const btn = document.getElementById('demo-btn');
+  btn.textContent = 'Демо-режим';
+  btn.style.color = 'var(--sepia)';
+  btn.style.borderColor = 'rgba(201,168,76,.25)';
+  setGPSStatus(false, 'Демо остановлен');
+}
+
+function applyDemoStep() {
+  [userLat, userLng] = DEMO_WALK[demoStep];
+  // Check if near any place (within 80m)
+  PLACES.forEach((p, i) => {
+    const d = getDistance(userLat, userLng, p.lat, p.lng);
+    if (d < 80) {
+      setGPSStatus(true, `📍 Вы у объекта: ${p.name}`);
+    }
+  });
+  renderPlaceList();
+  // Map redraws via its own animation loop
+}
+
+
+window.addEventListener('resize', () => {
+  if (currentTab === 'map') renderMap();
+});
+
+// Stop map animation when leaving tab
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) cancelAnimationFrame(mapAnimFrame);
+});
+</script>
+</body>
+</html>
